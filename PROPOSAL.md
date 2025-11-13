@@ -66,7 +66,7 @@ We start from existing open-source Verus code, including:
 Large modules and full repos are too big for individual SFT samples. Instead, we use the existing **Verus minimizer** to turn big programs into small, self-contained examples.
 
 **Minimizer tool:**
-- Location (in the main Verus repo): `source/tools/minimizers/`
+- Location: [`source/tools/minimizers/`](https://github.com/ChuyueSun/verus/tree/main/source/tools/minimizers) in the Verus repo
 - Purpose: given a target file or property, automatically shrink the program while preserving a chosen verification behavior (e.g., still verifies, or still fails with a particular error).
 
 #### Dataset Pipeline
