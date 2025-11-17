@@ -36,7 +36,7 @@ The goal of this project is to build and evaluate SFT pipelines that make models
 
 ## Motivation
 
-Formal verification in Verus embeds specifications, invariants, and proofs directly in Rust code. Systems like [VeriStruct](https://github.com/ChuyueSun/VeriStruct) and VerusAgent show that LLMs can assist with specification and proof tasks, but current code models still:
+Formal verification in Verus embeds specifications, invariants, and proofs directly in Rust code. Systems like [VeriStruct](https://github.com/ChuyueSun/VeriStruct) and other prototype assistants show that LLMs can assist with specification and proof tasks, but current code models still:
 
 - mis-handle Verus modes and ghost state,
 - omit or weaken specs,
@@ -45,6 +45,10 @@ Formal verification in Verus embeds specifications, invariants, and proofs direc
 
 **Hypothesis:**
 Supervised fine-tuning on a curated corpus of **minimized, self-contained Verus examples** will significantly improve model performance on spec generation, verified code synthesis, and proof repair—even *without* structured encodings. Once we have strong text baselines, we can rigorously ask: *when do ASTs or other structural views actually help?*
+
+## Related Work
+
+VerusSFT builds on a growing body of literature exploring language-model-assisted verification. Prior systems such as VeriStruct focus on prompt engineering and retrieval but stop short of supervised fine-tuning on minimized Verus corpora. Recent work like the arXiv preprint [arXiv:2505.20302](https://arxiv.org/pdf/2505.20302) examines adjacent verification-aware fine-tuning strategies, underscoring the demand for reproducible datasets, Verus-native evaluation harnesses, and head-to-head comparisons between text-only and structure-augmented representations. This proposal positions VerusSFT to complement that line of research by emphasizing minimized examples, multi-task SFT, and rigorous Verus-based metrics.
 
 ---
 
