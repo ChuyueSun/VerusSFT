@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-27T20:45:41.857025",
+  "generated_at": "2025-11-27T21:24:44.409305",
   "source_paths": [
     "../ironsht/src"
   ],
@@ -10,30 +10,30 @@
     "prompt_style": "basic"
   },
   "stats": {
-    "total_functions": 174,
-    "functions_with_specs": 174,
-    "functions_with_proofs": 28,
-    "functions_with_invariants": 19,
-    "source_files": 19
+    "total_functions": 173,
+    "functions_with_specs": 173,
+    "functions_with_proofs": 32,
+    "functions_with_invariants": 20,
+    "source_files": 18
   },
   "results": {
     "task_a": {
-      "train": 139,
+      "train": 138,
       "val": 17,
       "test": 18,
-      "all": 174
+      "all": 173
     },
     "task_b": {
-      "train": 125,
+      "train": 127,
       "val": 15,
       "test": 17,
-      "all": 157
+      "all": 159
     },
     "task_c": {
-      "train": 208,
+      "train": 209,
       "val": 26,
-      "test": 26,
-      "all": 260
+      "test": 27,
+      "all": 262
     }
   }
 }
