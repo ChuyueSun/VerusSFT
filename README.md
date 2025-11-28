@@ -95,6 +95,14 @@ Edit the `build_dataset()` function in `sft_example.py` to add your own Verus ex
 }
 ```
 
+Possible sources of additional Verus examples include:
+
+- [VOSTD dataset](https://github.com/asterinas/vostd) for automatically generated specifications
+- [Verismo](https://github.com/microsoft/verismo) for verified systems examples
+- [Verified Memory Allocator](https://github.com/verus-lang/verified-memory-allocator) for memory-safety focused code
+- [Verified Storage](https://github.com/microsoft/verified-storage) for storage system verification examples
+- [Vericoding](https://github.com/Beneficial-AI-Foundation/vericoding) for related work and potential benchmarking ideas
+
 ## File Structure
 
 ```
