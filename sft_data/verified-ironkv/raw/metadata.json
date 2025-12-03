@@ -1,0 +1,39 @@
+{
+  "generated_at": "2025-11-27T21:24:44.409305",
+  "source_paths": [
+    "../ironsht/src"
+  ],
+  "config": {
+    "min_lines": 3,
+    "max_lines": 200,
+    "require_specs": true,
+    "prompt_style": "basic"
+  },
+  "stats": {
+    "total_functions": 173,
+    "functions_with_specs": 173,
+    "functions_with_proofs": 32,
+    "functions_with_invariants": 20,
+    "source_files": 18
+  },
+  "results": {
+    "task_a": {
+      "train": 138,
+      "val": 17,
+      "test": 18,
+      "all": 173
+    },
+    "task_b": {
+      "train": 127,
+      "val": 15,
+      "test": 17,
+      "all": 159
+    },
+    "task_c": {
+      "train": 209,
+      "val": 26,
+      "test": 27,
+      "all": 262
+    }
+  }
+}
