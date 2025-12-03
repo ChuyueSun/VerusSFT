@@ -227,6 +227,8 @@ def generate_completion(
     """
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
+    num_input_tokens = inputs['input_ids'].shape[1]
+    
     with torch.no_grad():
         outputs = model.generate(
             **inputs,
@@ -237,9 +239,10 @@ def generate_completion(
             pad_token_id=tokenizer.eos_token_id,
         )
 
-    # Decode and return only the newly generated tokens
-    full_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    generated_text = full_text[len(prompt):]
+    # Extract only the newly generated tokens using token indices, then decode
+    # This avoids issues with tokenizer whitespace normalization and encoding differences
+    generated_tokens = outputs[0][num_input_tokens:]
+    generated_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
 
     return generated_text.strip()
 
