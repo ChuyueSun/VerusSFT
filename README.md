@@ -415,6 +415,8 @@ def run_verification_episode(task_description: str,
         agent_step = parse_agent_action(raw_response)
 
         if agent_step.action == "CALL_TOOL":
+            if agent_step.tool_name is None:
+                raise ValueError("tool_name cannot be None for CALL_TOOL action")
             tool = TOOLS[agent_step.tool_name]
             obs = tool.run(**(agent_step.tool_args or {}))
             agent_step.observation = obs
