@@ -26,7 +26,10 @@ from pathlib import Path
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from datasets import Dataset
+
+# Import test dataset and verification utilities
+from test_dataset import build_test_dataset, build_few_shot_examples
+from verus_verification import verify_with_verus, compute_verification_metrics
 
 
 # Available Qwen2.5-Coder model sizes
@@ -39,141 +42,7 @@ QWEN_MODELS = {
     "32B": "Qwen/Qwen2.5-Coder-32B",
 }
 
-
-def build_test_dataset() -> List[Dict[str, str]]:
-    """
-    Build test examples for baseline evaluation.
-    These are the same examples from sft_example.py but structured for evaluation.
-
-    Returns:
-        List of test examples with 'prompt' and 'expected_output' fields.
-    """
-    test_examples = [
-        {
-            "prompt": "Add Verus specs to this function:\n```rust\nfn abs(x: i32) -> i32 {\n    if x < 0 { -x } else { x }\n}\n```",
-            "expected_output": "```verus\nfn abs(x: i32) -> i32 {\n    requires true;\n    ensures |result| == |x| && (result == x || result == -x);\n    if x < 0 { -x } else { x }\n}\n```",
-            "task_type": "spec_generation",
-        },
-        {
-            "prompt": "Generate Rust code that satisfies: requires x > 0, ensures return == x + 1.",
-            "expected_output": "fn add_one(x: i32) -> i32 {\n    requires x > 0;\n    ensures result == x + 1;\n    x + 1\n}",
-            "task_type": "code_synthesis",
-        },
-        {
-            "prompt": "Add Verus specs to this max function:\n```rust\nfn max(a: i32, b: i32) -> i32 {\n    if a > b { a } else { b }\n}\n```",
-            "expected_output": "```verus\nfn max(a: i32, b: i32) -> i32 {\n    ensures result >= a && result >= b;\n    ensures result == a || result == b;\n    if a > b { a } else { b }\n}\n```",
-            "task_type": "spec_generation",
-        },
-        {
-            "prompt": "Write a Verus function that doubles a number:",
-            "expected_output": "```verus\nfn double(x: i32) -> i32 {\n    requires x < i32::MAX / 2;\n    ensures result == 2 * x;\n    x * 2\n}\n```",
-            "task_type": "code_synthesis",
-        },
-        {
-            "prompt": "Add Verus specification for array bounds checking:\n```rust\nfn get_first(arr: &[i32]) -> Option<i32> {\n    if arr.len() > 0 {\n        Some(arr[0])\n    } else {\n        None\n    }\n}\n```",
-            "expected_output": "```verus\nfn get_first(arr: &[i32]) -> Option<i32> {\n    requires true;\n    ensures arr.len() > 0 ==> result == Some(arr[0]);\n    ensures arr.len() == 0 ==> result == None;\n    if arr.len() > 0 {\n        Some(arr[0])\n    } else {\n        None\n    }\n}\n```",
-            "task_type": "spec_generation",
-        },
-        {
-            "prompt": "Create a Verus function for subtraction:",
-            "expected_output": "```verus\nfn subtract(a: i32, b: i32) -> i32 {\n    requires a >= b;\n    ensures result == a - b;\n    ensures result >= 0;\n    a - b\n}\n```",
-            "task_type": "code_synthesis",
-        },
-        {
-            "prompt": "Add Verus specs for division:\n```rust\nfn divide(a: u32, b: u32) -> u32 {\n    a / b\n}\n```",
-            "expected_output": "```verus\nfn divide(a: u32, b: u32) -> u32 {\n    requires b > 0;\n    ensures result == a / b;\n    ensures result <= a;\n    a / b\n}\n```",
-            "task_type": "spec_generation",
-        },
-        {
-            "prompt": "Write a Verus function that checks if a number is positive:",
-            "expected_output": "```verus\nfn is_positive(x: i32) -> bool {\n    ensures result == (x > 0);\n    x > 0\n}\n```",
-            "task_type": "code_synthesis",
-        },
-        {
-            "prompt": "Add Verus specs for minimum function:\n```rust\nfn min(a: i32, b: i32) -> i32 {\n    if a < b { a } else { b }\n}\n```",
-            "expected_output": "```verus\nfn min(a: i32, b: i32) -> i32 {\n    ensures result <= a && result <= b;\n    ensures result == a || result == b;\n    if a < b { a } else { b }\n}\n```",
-            "task_type": "spec_generation",
-        },
-        {
-            "prompt": "Create a Verus function for squaring:",
-            "expected_output": "```verus\nfn square(x: i32) -> i32 {\n    requires x.abs() < 46341;  // sqrt(i32::MAX)\n    ensures result == x * x;\n    ensures result >= 0;\n    x * x\n}\n```",
-            "task_type": "code_synthesis",
-        },
-    ]
-    return test_examples
-
-
-def build_few_shot_examples() -> str:
-    """
-    Build few-shot examples to prepend to prompts.
-    These serve as in-context learning examples.
-
-    Returns:
-        Formatted string with 3 example prompt-completion pairs.
-    """
-    few_shot = """Here are some examples of Verus code generation:
-
-Example 1:
-Prompt: Add Verus specs to this function:
-```rust
-fn clamp(x: i32, min: i32, max: i32) -> i32 {
-    if x < min { min } else if x > max { max } else { x }
-}
-```
-
-Answer:
-```verus
-fn clamp(x: i32, min: i32, max: i32) -> i32 {
-    requires min <= max;
-    ensures result >= min && result <= max;
-    ensures (x >= min && x <= max) ==> result == x;
-    if x < min { min } else if x > max { max } else { x }
-}
-```
-
-Example 2:
-Prompt: Write a Verus function that returns the sum of two positive numbers:
-
-Answer:
-```verus
-fn sum_positive(a: i32, b: i32) -> i32 {
-    requires a > 0 && b > 0;
-    requires a < i32::MAX - b;  // Prevent overflow
-    ensures result == a + b;
-    ensures result > a && result > b;
-    a + b
-}
-```
-
-Example 3:
-Prompt: Add Verus specs for safe array access:
-```rust
-fn get_element(arr: &[i32], idx: usize) -> Option<i32> {
-    if idx < arr.len() {
-        Some(arr[idx])
-    } else {
-        None
-    }
-}
-```
-
-Answer:
-```verus
-fn get_element(arr: &[i32], idx: usize) -> Option<i32> {
-    ensures idx < arr.len() ==> result == Some(arr[idx]);
-    ensures idx >= arr.len() ==> result == None;
-    if idx < arr.len() {
-        Some(arr[idx])
-    } else {
-        None
-    }
-}
-```
-
-Now solve this task:
-
-"""
-    return few_shot
+# Note: build_test_dataset() and build_few_shot_examples() are imported from test_dataset.py
 
 
 def load_model(model_name: str, device: str = "auto"):
@@ -297,6 +166,10 @@ def evaluate_model(
             generated = generate_completion(model, tokenizer, full_prompt)
             gen_time = time.time() - start_time
 
+            #Verify with Verus
+            print(f"  Generated in {gen_time:.2f}s, verifying with Verus...", end=" ")
+            verus_result = verify_with_verus(generated)
+
             # Store results
             result = {
                 "example_id": i,
@@ -306,10 +179,15 @@ def evaluate_model(
                 "generated_output": generated,
                 "generation_time_seconds": gen_time,
                 "mode": eval_mode,
+                "verus_verification": verus_result,
             }
             results.append(result)
 
-            print(f"  Generated in {gen_time:.2f}s")
+            # Print status
+            if verus_result["success"]:
+                print("✓ VERIFIED")
+            else:
+                print(f"✗ {verus_result['error_type']}")
             print(f"  First 100 chars: {generated[:100]}...")
             print()
 
@@ -325,16 +203,35 @@ def evaluate_model(
             json.dump(results, f, indent=2)
         print(f"\nResults saved to: {output_file}")
 
-    # Print summary statistics
+    # Print summary statistics with verification metrics
     print(f"\n{'='*60}")
     print(f"Summary for Qwen {model_size}")
     print(f"{'='*60}")
     for eval_mode, results in all_results.items():
         avg_time = sum(r["generation_time_seconds"] for r in results) / len(results)
+
+        # Compute verification metrics
+        verus_results = [r["verus_verification"] for r in results]
+        metrics = compute_verification_metrics(verus_results)
+
         print(f"\n{eval_mode.upper()}:")
         print(f"  Total examples: {len(results)}")
         print(f"  Average generation time: {avg_time:.2f}s")
         print(f"  Total time: {sum(r['generation_time_seconds'] for r in results):.2f}s")
+        print(f"\n  VERIFICATION RESULTS:")
+        print(f"    Pass rate: {metrics['verification_pass_rate']:.1%} ({metrics['successful']}/{metrics['total_samples']})")
+        print(f"    Syntax errors: {metrics['error_breakdown']['syntax_errors']}")
+        print(f"    Mode errors: {metrics['error_breakdown']['mode_errors']}")
+        print(f"    Spec errors: {metrics['error_breakdown']['precondition_errors'] + metrics['error_breakdown']['postcondition_errors']}")
+        print(f"    Invariant errors: {metrics['error_breakdown']['invariant_errors']}")
+        print(f"    VC failures: {metrics['error_breakdown']['vc_failures']}")
+        print(f"    Timeouts: {metrics['error_breakdown']['timeouts']}")
+
+        # Save metrics to separate file
+        metrics_file = output_path / f"qwen_{model_size.replace('.', '_')}_{eval_mode}_metrics.json"
+        with open(metrics_file, "w") as f:
+            json.dump(metrics, f, indent=2)
+        print(f"\n  Metrics saved to: {metrics_file}")
 
 
 def main():

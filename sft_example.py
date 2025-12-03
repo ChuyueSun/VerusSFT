@@ -40,11 +40,16 @@ except ImportError:
 
 def build_dataset() -> Dataset:
     """
-    Build a prompt/completion dataset with diverse Verus examples.
+    Build the TRAINING dataset with diverse Verus examples.
+
+    IMPORTANT: These are TRAINING examples only. They must NEVER be used for evaluation.
+    For evaluation, use the separate test set in test_dataset.py which contains
+    20 held-out examples that are completely different from these training examples.
+
     Each entry contains a "text" field that combines the prompt and completion.
-    
+
     Returns:
-        A Hugging Face ``Dataset`` containing the examples.
+        A Hugging Face ``Dataset`` containing the 10 training examples.
     """
     examples = [
         {
