@@ -1,9 +1,9 @@
-# VerusFT-RL: Fine-Tuning and RL for Verification-Oriented Rust/Verus Code
+# VerusSFT: Fine-Tuning and RL for Verification-Oriented Rust/Verus Code
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-VerusFT-RL is a research repo for exploring **supervised fine-tuning (SFT)** and **reinforcement learning (RL)** of language models on **verification-oriented Rust/Verus code**. General-purpose code LLMs often struggle with Verus-specific concepts like `exec` / `ghost` / `proof` modes, `requires` / `ensures` specifications, View functions, typestate-like abstractions, loop invariants and `decreases` clauses, proof blocks, and Verus error traces. The goal is to make models genuinely Verus-aware and to understand when structured representations (like ASTs) add value beyond plain text.
+VerusSFT is a research repository for exploring **supervised fine-tuning (SFT)** and **reinforcement learning (RL)** of language models on **verification-oriented Rust/Verus code**. General-purpose code LLMs often struggle with Verus-specific concepts like `exec` / `ghost` / `proof` modes, `requires` / `ensures` specifications, View functions, typestate-like abstractions, loop invariants and `decreases` clauses, proof blocks, and Verus error traces. The goal is to make models Verus-capable and to understand when structured representations (like ASTs) add value beyond plain text.
 
 ## Table of Contents
 - [Quick Start](#quick-start)
@@ -65,6 +65,28 @@ python test_inference.py
 | Token Accuracy | 45% | 55% | 10% ↑ |
 | Training Time | - | ~14s | 8 epochs |
 | Adapter Size | - | 6.2MB | - |
+
+> **Important**: These metrics are from prototype training on only 10 hand-crafted examples. They demonstrate the training pipeline works but do not represent real performance on verification tasks. Token accuracy is not a reliable proxy for verification success—the true metric is whether generated code actually verifies with Verus.
+
+---
+
+## Known Limitations
+
+**Current prototype limitations (as of Dec 2, 2025):**
+
+- ❌ **Tiny dataset**: Only 10 training examples (not representative of real Verus code diversity)
+- ❌ **No code-specialized base model**: Using GPT-2 instead of models trained on code
+- ❌ **No Verus evaluation**: Training metrics (loss, token accuracy) don't measure actual verification success
+- ❌ **No minimizer integration**: Dataset is hand-crafted, not automatically generated
+- ❌ **Single-task only**: No multi-task training across spec generation, code synthesis, and repair
+- ❌ **No benchmark suite**: No standardized held-out test set for evaluation
+
+**What this means:**
+- The prototype validates the *training infrastructure* (LoRA, SFT pipeline)
+- It does NOT validate that fine-tuning improves Verus code generation
+- Real evaluation requires running Verus on generated code and measuring verification pass rates
+
+**Planned improvements:** See [Future Improvements](#future-improvements) and [Student Subprojects](#student-subprojects)
 
 ---
 
@@ -131,7 +153,7 @@ Formal verification in Verus embeds specifications, invariants, and proofs direc
 
 ## Related Work
 
-VerusFT-RL builds on a growing body of literature exploring language-model-assisted verification:
+VerusSFT builds on a growing body of literature exploring language-model-assisted verification:
 
 - **[VeriStruct](https://github.com/ChuyueSun/VeriStruct)**: Focuses on prompt engineering and retrieval but stops short of supervised fine-tuning on minimized Verus corpora.
 - **[arXiv:2505.20302](https://arxiv.org/pdf/2505.20302)**: Examines adjacent verification-aware fine-tuning strategies.
@@ -245,7 +267,7 @@ Benchmark targets include canonical Verus data structure modules (e.g., ring buf
 
 ## Reinforcement Learning Extensions for Verification Agents
 
-While VerusFT-RL is anchored in supervised fine-tuning, it equally emphasizes reinforcement learning (RL) strategies for LLM-based verification agents. These extensions are directly motivated by systems like VeriStruct and DeepSeek-style reasoners, and they provide a roadmap for going beyond static prompting.
+While VerusSFT is anchored in supervised fine-tuning, it equally emphasizes reinforcement learning (RL) strategies for LLM-based verification agents. These extensions are directly motivated by systems like VeriStruct and DeepSeek-style reasoners, and they provide a roadmap for going beyond static prompting.
 
 ### 1. Three RL Paradigms
 
@@ -439,6 +461,7 @@ def run_verification_episode(task_description: str,
 
         elif agent_step.action == "FINISH":
             episode.final_code = current_code
+            episode.steps.append(agent_step)
             break
 
         episode.steps.append(agent_step)
@@ -573,39 +596,17 @@ This repo is designed to support multiple small research projects (e.g., rotatio
 
 ---
 
-## Repo Status
-
-Right now, the repo contains a small prototype SFT pipeline (GPT-2 + LoRA + a handful of Verus examples). The plan is to evolve it into:
-
-- a **dataset builder** (minimizer-driven),
-- a **task-specific SFT training suite**, and
-- a **reproducible benchmark** for verification-oriented SFT.
-
-Current prototype highlights:
-
-- ✅ Parameter-efficient fine-tuning with LoRA
-- ✅ 10 diverse Verus training examples (seed set, expanding soon)
-- ✅ Configurable training hyperparameters
-- ✅ Inference script for testing trained models
-- ✅ Small adapter weights (~6.2MB) instead of full model
-
-### Training results (prototype)
-
-- **Loss reduction**: 3.40 → 2.42 (28.7% improvement)
-- **Token accuracy**: 45% → 55%
-- **Training time**: ~14 seconds for 8 epochs
-- **Adapter size**: 6.2MB
-
----
-
 ## Installation
 
 ### Prerequisites
 - Python 3.8 or higher
 - PyTorch 2.0+
 - CUDA-capable GPU (recommended, but CPU training is possible)
+- Verus verifier (required for evaluation and dataset generation)
 
 ### Setup
+
+#### 1. Install Python Dependencies
 
 ```bash
 # Clone the repository
@@ -619,11 +620,40 @@ pip install transformers trl datasets peft accelerate torch
 # pip install torch --index-url https://download.pytorch.org/whl/cu118
 ```
 
-### Verify Installation
+#### 2. Install Verus (Required for Full Functionality)
 
 ```bash
-python -c "import transformers, trl, peft; print('All dependencies installed successfully!')"
+# Clone Verus repository
+git clone https://github.com/verus-lang/verus.git
+cd verus
+
+# Download Z3 SMT solver
+./tools/get-z3.sh
+
+# Activate Verus environment
+source tools/activate
+
+# Build Verus (takes several minutes)
+vargo build --release
+
+# Add Verus to PATH (add to ~/.bashrc or ~/.zshrc for persistence)
+export PATH=$PATH:$(pwd)/source/target-verus/release
 ```
+
+#### 3. Verify Installation
+
+```bash
+# Verify Python dependencies
+python -c "import transformers, trl, peft; print('All dependencies installed successfully!')"
+
+# Verify Verus installation
+verus --version
+```
+
+> **Note**: The current prototype (SFT training only) does not require Verus. However, Verus is essential for:
+> - Evaluating generated code via verification
+> - Using the minimizer for dataset generation
+> - Running the full research pipeline
 
 ## Usage
 
@@ -727,6 +757,56 @@ model_name = "Qwen/Qwen2.5-Coder-1.5B"  # Recommended for code
 ```
 
 **Note**: When changing models, update `target_modules` in the LoRA config to match the new model's architecture.
+
+---
+
+## Compute Requirements
+
+### Hardware Recommendations
+
+| Use Case | RAM | GPU | Training Time (10 epochs) | Notes |
+|----------|-----|-----|---------------------------|-------|
+| **Prototype (GPT-2)** | 8GB | CPU or any GPU | ~2 min (CPU), ~15s (GPU) | Good for testing pipeline |
+| **Small models (1.5B)** | 16GB | 8GB VRAM (RTX 3070+) | ~5-10 min | Qwen2.5-Coder-1.5B, DeepSeek-Coder-1.3B |
+| **Medium models (3B)** | 32GB | 16GB VRAM (RTX 4080+) | ~15-30 min | StarCoder2-3B, CodeLlama-7B with aggressive LoRA |
+| **Large models (7B+)** | 64GB+ | 24GB+ VRAM (RTX 4090/A100) | 1-3 hours | Full-scale research experiments |
+
+### Disk Space
+
+- **Python dependencies**: ~5GB (PyTorch, transformers, etc.)
+- **Base model cache**: 0.5GB (GPT-2) to 15GB (7B models)
+- **LoRA adapters**: 6MB (r=16) to 50MB (r=64)
+- **Verus**: ~2GB (includes Z3 and dependencies)
+- **Dataset**: 10MB (current) to 500MB+ (planned full dataset)
+
+**Recommended**: 20GB free disk space for comfortable development
+
+### Cloud Computing Options
+
+For users without local GPU access:
+
+- **Google Colab** (Free tier): Sufficient for GPT-2 and small models, 12GB GPU
+- **Google Colab Pro**: Recommended for 1.5B-3B models, better GPU options
+- **AWS/GCP/Azure**: For large-scale experiments and production training
+- **Lambda Labs / RunPod**: Cost-effective GPU rentals for research
+
+### Performance Tips
+
+1. **Reduce memory usage**:
+   - Lower `per_device_train_batch_size` (1 instead of 2)
+   - Reduce `max_seq_length` (512 instead of 1024)
+   - Use smaller LoRA rank (`r=8` instead of `r=16`)
+   - Enable gradient checkpointing
+
+2. **Speed up training**:
+   - Use mixed precision training (`bf16=True` for modern GPUs)
+   - Enable gradient accumulation for effective larger batches
+   - Use flash attention if available
+
+3. **Dataset generation** (Verus minimizer):
+   - CPU-bound, not GPU-intensive
+   - Can run on modest hardware (8GB RAM, any CPU)
+   - Parallelizable across multiple examples
 
 ---
 
@@ -939,11 +1019,12 @@ Contributions are welcome! Please:
 If you use this work in your research, please cite:
 
 ```bibtex
-@misc{verusfft-rl2025,
-  title={VerusFT-RL: Fine-Tuning and RL for Verification-Oriented Rust/Verus Code},
-  author={ChuyueSun and contributors},
+@software{verusft2025,
+  title={VerusSFT: Fine-Tuning and RL for Verification-Oriented Rust/Verus Code},
+  author={Sun, Chuyue},
   year={2025},
-  url={https://github.com/ChuyueSun/VerusSFT}
+  url={https://github.com/ChuyueSun/VerusSFT},
+  note={Research prototype for LLM-assisted formal verification}
 }
 ```
 
